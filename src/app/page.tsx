@@ -13,6 +13,10 @@ export default function Home() {
   const [body, setBody] = useState("");
   const [maxChars, setMaxChars] = useState("");
 
+  const [reviewing, setReviewing] = useState(false);
+  const [result, setResult] = useState("");
+  const [apiError, setApiError] = useState("");
+
   const charCount = useMemo(() => countChars(body), [body]);
   const misuse = useMemo(() => checkOnshaKisha(body), [body]);
 
@@ -20,12 +24,44 @@ export default function Home() {
   const over = limit !== null && charCount > limit;
   const overBy = limit !== null ? charCount - limit : 0;
 
+  async function runReview() {
+    if (!body.trim()) return;
+    setReviewing(true);
+    setApiError("");
+    setResult("");
+    try {
+      const res = await fetch("/api/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company, role, question, body }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setApiError(data.error ?? "添削に失敗しました。");
+      } else {
+        setResult(data.result ?? "");
+      }
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "通信に失敗しました。");
+    } finally {
+      setReviewing(false);
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold">ES添削ツール</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold">ES添削ツール</h1>
+          <a
+            href="/browser"
+            className="text-sm text-blue-600 hover:underline"
+          >
+            ブラウザ内AI添削（Gemma）→
+          </a>
+        </div>
         <p className="mt-1 text-sm text-zinc-500">
-          書いたその場で、文字数と「御社／貴社」を即チェック。AI添削は次のステップで追加します。
+          書いたその場で、文字数と「御社／貴社」を即チェック。AI添削はブラウザ上のGemmaで実行します（課金ゼロ）。
         </p>
       </header>
 
@@ -93,12 +129,28 @@ export default function Home() {
 
           <button
             type="button"
-            disabled
-            title="AI添削は Step 2 で実装予定"
-            className="w-fit cursor-not-allowed rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white opacity-40 dark:bg-white dark:text-black"
+            onClick={runReview}
+            disabled={reviewing || !body.trim()}
+            className="w-fit rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-black"
           >
-            添削する（Step 2 で実装）
+            {reviewing ? "添削中…" : "AIで添削する"}
           </button>
+
+          {apiError && (
+            <p className="text-sm text-red-500">{apiError}</p>
+          )}
+
+          {result && (
+            <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+              <h2 className="mb-2 text-sm font-semibold">添削結果</h2>
+              <pre className="whitespace-pre-wrap break-words text-sm leading-7">
+                {result}
+              </pre>
+              <p className="mt-3 text-xs text-zinc-400">
+                ※ 無料AIのため入力が学習に使われる場合があります。添削は参考で、最終判断はご自身で。
+              </p>
+            </div>
+          )}
         </section>
 
         {/* 即時チェック */}

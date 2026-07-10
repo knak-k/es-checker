@@ -61,6 +61,7 @@ http://localhost:3000 を開く。
 - **GitHub 公開**：https://github.com/knak-k/es-checker （public, main）に push 済み
 - **UI刷新（デザイン）**：モバイルファーストで全面刷新。共通ヘッダー/フッター、デザイントークン（`src/lib/ui.ts`）、カードUI、文字数メーター、御社/貴社チップ
 - **下書き自動保存**：入力を localStorage に自動保存＋再訪時に復元、「クリア」ボタン（plan.md P1 の一部）
+- **CSSフレームワーク移行**：Tailwind → Bootstrap 5（react-bootstrap）。ダークは `data-bs-theme` で自動切替
 
 ### 進行中
 

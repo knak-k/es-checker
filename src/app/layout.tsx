@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 import { SiteHeader } from "./_components/SiteHeader";
+import { ThemeSync } from "./_components/ThemeSync";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,14 +26,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="ja"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
+    <html lang="ja" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="d-flex flex-column min-vh-100">
+        <ThemeSync />
         <SiteHeader />
-        <div className="flex-1">{children}</div>
-        <footer className="border-t border-zinc-200 py-6 text-center text-xs text-zinc-400 dark:border-zinc-800">
+        <main className="flex-fill">{children}</main>
+        <footer className="border-top py-4 text-center text-body-secondary small">
           ES添削ツール · 添削はAIによる参考です。最終判断はご自身で。
         </footer>
       </body>

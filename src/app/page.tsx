@@ -1,8 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Col,
+  Container,
+  Form,
+  ProgressBar,
+  Row,
+} from "react-bootstrap";
 import { checkOnshaKisha, countChars } from "@/lib/checks";
-import { btnGhost, btnPrimary, card, fieldLabel, input } from "@/lib/ui";
 
 const DRAFT_KEY = "es-checker:draft:v1";
 
@@ -70,11 +80,7 @@ export default function Home() {
   const over = limit !== null && charCount > limit;
   const overBy = limit !== null ? charCount - limit : 0;
   const ratio = limit && limit > 0 ? Math.min(charCount / limit, 1) : 0;
-  const meterColor = over
-    ? "bg-red-500"
-    : ratio >= 0.9
-      ? "bg-amber-500"
-      : "bg-indigo-500";
+  const meterVariant = over ? "danger" : ratio >= 0.9 ? "warning" : "info";
 
   async function runReview() {
     if (!body.trim()) return;
@@ -101,151 +107,142 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
-      <section className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          ESをその場で添削
-        </h1>
-        <p className="mt-2 text-sm leading-6 text-zinc-500">
+    <Container className="py-4 py-sm-5" style={{ maxWidth: 780 }}>
+      <div className="mb-4">
+        <h1 className="fw-bold">ESをその場で添削</h1>
+        <p className="text-body-secondary mb-0">
           文字数と「御社／貴社」はリアルタイムでチェック。AI添削はサーバー上の Gemini
           が採点します。スマホでもそのまま使えます。
         </p>
-      </section>
-
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-xs text-zinc-400">
-          下書きはこの端末に自動保存されます
-        </p>
-        <button
-          type="button"
-          onClick={clearDraft}
-          className={`${btnGhost} px-3 py-1.5 text-xs`}
-        >
-          クリア
-        </button>
       </div>
 
-      <div className={`${card} p-5 sm:p-6`}>
-        <div className="flex flex-col gap-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label className={fieldLabel}>企業名</label>
-              <input
-                className={input}
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                placeholder="例）株式会社〇〇"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className={fieldLabel}>応募職種</label>
-              <input
-                className={input}
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="例）研究開発職 / エンジニア"
-              />
-            </div>
-          </div>
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <span className="text-body-secondary small">
+          下書きはこの端末に自動保存されます
+        </span>
+        <Button variant="outline-secondary" size="sm" onClick={clearDraft}>
+          クリア
+        </Button>
+      </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className={fieldLabel}>設問</label>
-            <input
-              className={input}
+      <Card className="shadow-sm">
+        <Card.Body className="p-4">
+          <Row className="g-3">
+            <Col sm={6}>
+              <Form.Group>
+                <Form.Label>企業名</Form.Label>
+                <Form.Control
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="例）株式会社〇〇"
+                />
+              </Form.Group>
+            </Col>
+            <Col sm={6}>
+              <Form.Group>
+                <Form.Label>応募職種</Form.Label>
+                <Form.Control
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  placeholder="例）研究開発職 / エンジニア"
+                />
+              </Form.Group>
+            </Col>
+          </Row>
+
+          <Form.Group className="mt-3">
+            <Form.Label>設問</Form.Label>
+            <Form.Control
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="例）学生時代に力を入れたことを教えてください"
             />
-          </div>
+          </Form.Group>
 
-          <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className={fieldLabel}>回答本文</label>
-              <div className="flex items-center gap-2 text-xs">
+          <Form.Group className="mt-3">
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+              <Form.Label className="mb-0">回答本文</Form.Label>
+              <div className="d-flex align-items-center gap-2">
                 {misuse.map((m) => (
-                  <span
-                    key={m.spoken}
-                    className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                  >
+                  <Badge key={m.spoken} bg="warning" text="dark">
                     {m.spoken}→{m.written} ×{m.count}
-                  </span>
+                  </Badge>
                 ))}
                 <span
-                  className={`tabular-nums ${over ? "font-semibold text-red-500" : "text-zinc-500"}`}
+                  className={`small font-monospace ${over ? "text-danger fw-semibold" : "text-body-secondary"}`}
                 >
                   {charCount}
                   {limit !== null ? ` / ${limit}` : ""} 文字
                 </span>
               </div>
             </div>
-            <textarea
-              className={`${input} min-h-[15rem] resize-y leading-7`}
+            <Form.Control
+              as="textarea"
+              rows={10}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="ここにESの回答を貼り付け／入力してください"
             />
             {limit !== null && (
-              <div className="mt-1">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                  <div
-                    className={`h-full rounded-full transition-all ${meterColor}`}
-                    style={{ width: `${ratio * 100}%` }}
-                  />
-                </div>
+              <>
+                <ProgressBar
+                  className="mt-2"
+                  style={{ height: 6 }}
+                  now={ratio * 100}
+                  variant={meterVariant}
+                />
                 {over && (
-                  <p className="mt-1 text-xs text-red-500">
+                  <div className="text-danger small mt-1">
                     上限を {overBy} 文字オーバー
-                  </p>
+                  </div>
                 )}
-              </div>
+              </>
             )}
-          </div>
+          </Form.Group>
 
-          <div className="flex flex-col gap-1.5 sm:w-44">
-            <label className={fieldLabel}>文字数上限</label>
-            <input
-              className={input}
+          <Form.Group className="mt-3" style={{ maxWidth: 180 }}>
+            <Form.Label>文字数上限</Form.Label>
+            <Form.Control
               type="number"
               min={0}
               value={maxChars}
               onChange={(e) => setMaxChars(e.target.value)}
               placeholder="例）400"
             />
+          </Form.Group>
+
+          <div className="d-grid d-sm-block mt-4">
+            <Button
+              variant="primary"
+              onClick={runReview}
+              disabled={reviewing || !body.trim()}
+            >
+              {reviewing ? "添削中…" : "AIで添削する"}
+            </Button>
           </div>
 
-          <button
-            type="button"
-            onClick={runReview}
-            disabled={reviewing || !body.trim()}
-            className={`${btnPrimary} w-full sm:w-auto`}
-          >
-            {reviewing ? "添削中…" : "AIで添削する"}
-          </button>
-
           {apiError && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/50 dark:text-red-400">
+            <Alert variant="danger" className="mt-3 mb-0">
               {apiError}
-            </p>
+            </Alert>
           )}
-        </div>
-      </div>
+        </Card.Body>
+      </Card>
 
       {result && (
-        <div className={`${card} mt-6 p-5 sm:p-6`}>
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <span className="grid h-5 w-5 place-items-center rounded bg-indigo-600 text-[10px] text-white">
-              AI
-            </span>
-            添削結果
-          </h2>
-          <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7">
-            {result}
-          </pre>
-          <p className="mt-4 border-t border-zinc-100 pt-3 text-xs text-zinc-400 dark:border-zinc-800">
-            ※ 無料AIのため入力が学習に使われる場合があります。添削は参考で、最終判断はご自身で。
-          </p>
-        </div>
+        <Card className="shadow-sm mt-4">
+          <Card.Body className="p-4">
+            <h2 className="h6 d-flex align-items-center gap-2 mb-3">
+              <Badge bg="primary">AI</Badge>
+              添削結果
+            </h2>
+            <div className="review-output">{result}</div>
+            <p className="text-body-secondary small border-top pt-3 mt-3 mb-0">
+              ※ 無料AIのため入力が学習に使われる場合があります。添削は参考で、最終判断はご自身で。
+            </p>
+          </Card.Body>
+        </Card>
       )}
-    </main>
+    </Container>
   );
 }

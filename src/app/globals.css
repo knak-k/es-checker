@@ -1,27 +1,14 @@
-@import "tailwindcss";
-
-:root {
-  --background: #f6f7f9;
-  --foreground: #18181b;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0b;
-    --foreground: #ededee;
-  }
-}
+/* Bootstrap 5 を採用。ベースは bootstrap.min.css（layout.tsx で読込）。
+   ここは最小限のカスタムのみ。 */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
-    "Noto Sans JP", Meiryo, sans-serif;
+  font-family: var(--font-geist-sans), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Noto Sans JP", Meiryo, system-ui, sans-serif;
+}
+
+/* 添削結果の等幅表示を本文フォントに寄せる */
+.review-output {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
 }

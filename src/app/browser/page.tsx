@@ -4,9 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type * as WebLLM from "@mlc-ai/web-llm";
 import { checkOnshaKisha, countChars } from "@/lib/checks";
 import { REVIEW_SYSTEM, buildReviewPrompt } from "@/lib/prompt";
-
-const inputClass =
-  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900";
+import { btnGhost, btnPrimary, card, fieldLabel, input } from "@/lib/ui";
 
 export default function BrowserPage() {
   const [models, setModels] = useState<string[]>([]);
@@ -98,32 +96,31 @@ export default function BrowserPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8">
-      <header className="mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">ブラウザ内AI添削（Gemma）</h1>
-          <a href="/" className="text-sm text-blue-600 hover:underline">
-            ← 即時チェックに戻る
-          </a>
-        </div>
-        <p className="mt-1 text-sm text-zinc-500">
+    <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
+      <section className="mb-8">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          ブラウザ内AI添削（Gemma）
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-zinc-500">
           モデルはあなたのブラウザ上で動きます。ESの内容はサーバーに送信されません（課金・通信ゼロ）。
+          初回はモデルのダウンロードが必要で、WebGPU 対応のPC（Chrome / Edge）向けです。
         </p>
-      </header>
+      </section>
 
       {webgpuOk === false && (
-        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-          このブラウザは <b>WebGPU 非対応</b>です。Chrome または Edge（最新版）でお試しください。
+        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          このブラウザは <b>WebGPU 非対応</b>です。Chrome または
+          Edge（最新版）でお試しください。スマホの場合はトップの「AI添削」をご利用ください。
         </div>
       )}
 
       {/* モデル読み込み */}
-      <section className="mb-6 flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className={`${card} mb-6 p-5`}>
         <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">モデル</span>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <label className={fieldLabel}>モデル</label>
             <select
-              className={inputClass}
+              className={input}
               value={modelId}
               onChange={(e) => setModelId(e.target.value)}
               disabled={loading || loaded}
@@ -135,87 +132,115 @@ export default function BrowserPage() {
                 </option>
               ))}
             </select>
-          </label>
+          </div>
           <button
             type="button"
             onClick={loadModel}
             disabled={loading || loaded || !modelId || webgpuOk === false}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-white dark:text-black"
+            className={btnGhost}
           >
             {loaded ? "読み込み済み" : loading ? "読み込み中…" : "モデルを読み込む"}
           </button>
         </div>
         {(loading || status) && (
-          <div>
-            <div className="h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+          <div className="mt-3">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
               <div
-                className="h-full bg-blue-500 transition-all"
+                className="h-full rounded-full bg-indigo-500 transition-all"
                 style={{ width: `${Math.round(progress * 100)}%` }}
               />
             </div>
-            <p className="mt-1 text-xs text-zinc-500">{status}</p>
+            <p className="mt-1.5 text-xs text-zinc-500">{status}</p>
           </div>
         )}
-        <p className="text-xs text-zinc-400">
+        <p className="mt-3 text-xs text-zinc-400">
           初回はモデル（数百MB〜）をダウンロードします。以降はブラウザにキャッシュされます。
         </p>
-      </section>
+      </div>
 
       {/* 入力 */}
-      <section className="flex flex-col gap-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">企業名</span>
-            <input className={inputClass} value={company} onChange={(e) => setCompany(e.target.value)} />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">応募職種</span>
-            <input className={inputClass} value={role} onChange={(e) => setRole(e.target.value)} />
-          </label>
-        </div>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">設問</span>
-          <input className={inputClass} value={question} onChange={(e) => setQuestion(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">回答本文</span>
-            <span className="text-zinc-500">
-              {charCount} 文字
-              {misuse.length > 0 && (
-                <span className="ml-2 text-amber-600">
-                  ・{misuse.map((m) => `${m.spoken}→${m.written}`).join(" ")}
-                </span>
-              )}
-            </span>
+      <div className={`${card} p-5 sm:p-6`}>
+        <div className="flex flex-col gap-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className={fieldLabel}>企業名</label>
+              <input
+                className={input}
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={fieldLabel}>応募職種</label>
+              <input
+                className={input}
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+              />
+            </div>
           </div>
-          <textarea
-            className={`${inputClass} min-h-[14rem] resize-y leading-7`}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="ここにESの回答を入力"
-          />
-        </label>
 
-        <button
-          type="button"
-          onClick={review}
-          disabled={!loaded || running || !body.trim()}
-          className="w-fit rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-        >
-          {running ? "添削中…" : "ブラウザで添削する"}
-        </button>
-      </section>
+          <div className="flex flex-col gap-1.5">
+            <label className={fieldLabel}>設問</label>
+            <input
+              className={input}
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className={fieldLabel}>回答本文</label>
+              <div className="flex items-center gap-2 text-xs">
+                {misuse.map((m) => (
+                  <span
+                    key={m.spoken}
+                    className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                  >
+                    {m.spoken}→{m.written} ×{m.count}
+                  </span>
+                ))}
+                <span className="tabular-nums text-zinc-500">
+                  {charCount} 文字
+                </span>
+              </div>
+            </div>
+            <textarea
+              className={`${input} min-h-[14rem] resize-y leading-7`}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="ここにESの回答を入力"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={review}
+            disabled={!loaded || running || !body.trim()}
+            className={`${btnPrimary} w-full sm:w-auto`}
+          >
+            {running ? "添削中…" : "ブラウザで添削する"}
+          </button>
+        </div>
+      </div>
 
       {/* 結果 */}
       {output && (
-        <section className="mt-6 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <h2 className="mb-2 text-sm font-semibold">添削結果</h2>
-          <pre className="whitespace-pre-wrap break-words text-sm leading-7">{output}</pre>
-          <p className="mt-3 text-xs text-zinc-400">
+        <div className={`${card} mt-6 p-5 sm:p-6`}>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+            <span className="grid h-5 w-5 place-items-center rounded bg-indigo-600 text-[10px] text-white">
+              AI
+            </span>
+            添削結果
+          </h2>
+          <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7">
+            {output}
+          </pre>
+          <p className="mt-4 border-t border-zinc-100 pt-3 text-xs text-zinc-400 dark:border-zinc-800">
             ※ 小型モデルのため、採点や指摘は参考程度に。最終判断はご自身で。
           </p>
-        </section>
+        </div>
       )}
     </main>
   );

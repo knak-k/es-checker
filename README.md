@@ -86,6 +86,13 @@ http://localhost:3000 を開く。
   `robots.txt` 自体はパスワードゲート対象外にして、クローラーが正しく読めるようにした。
 - **フォント修正**：`Noto Sans JP` を next/font/google で確実に読み込み。Windows等でシステムフォールバックが
   古いフォント（Meiryo等）になっていた問題を解消。
+- **添削結果を構造化JSON出力に変更**：AIの自由記述（Markdownのアスタリスクが生表示され読みにくい、
+  総合点と項目別点数の合計が食い違う、等の問題があった）をやめ、Gemini の `responseSchema` で
+  JSON形式に固定。項目別（主体性/思考力/実行力/他者理解力/再現性）を得点・理由・不足要素・改善案に
+  分離してカードUIで表示。総合点はAIの自己申告を使わず、項目別得点の合計をサーバー側で計算することで
+  数値の不整合を構造的に防止（`src/lib/prompt.ts` の `normalizeReviewResult`）。
+  `/browser`（WebLLM/Gemma）はJSON Schema出力に対応しないため自由記述のまま、Markdown禁止の指示のみ強化。
+  実機検証：ログイン→添削実行で `overallScore` が項目別得点の合計と一致することを確認。
 
 ### 進行中
 

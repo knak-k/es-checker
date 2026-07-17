@@ -14,7 +14,7 @@ import {
   Row,
 } from "react-bootstrap";
 import { checkOnshaKisha, countChars } from "@/lib/checks";
-import { REVIEW_SYSTEM, buildReviewPrompt } from "@/lib/prompt";
+import { REVIEW_SYSTEM, buildFreeformReviewPrompt } from "@/lib/prompt";
 
 export default function BrowserPage() {
   const [models, setModels] = useState<string[]>([]);
@@ -87,7 +87,7 @@ export default function BrowserPage() {
           { role: "system", content: REVIEW_SYSTEM },
           {
             role: "user",
-            content: buildReviewPrompt({ company, role, question, body }),
+            content: buildFreeformReviewPrompt({ company, role, question, body }),
           },
         ],
         temperature: 0.3,

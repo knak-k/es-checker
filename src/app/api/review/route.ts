@@ -3,7 +3,13 @@ import {
   GoogleGenerativeAIFetchError,
 } from "@google/generative-ai";
 import { NextResponse } from "next/server";
-import { REVIEW_SYSTEM, buildReviewPrompt, type ReviewInput } from "@/lib/prompt";
+import {
+  REVIEW_SCHEMA,
+  REVIEW_SYSTEM,
+  buildStructuredReviewPrompt,
+  normalizeReviewResult,
+  type ReviewInput,
+} from "@/lib/prompt";
 
 // サーバー側でのみ実行される。APIキーはここでしか読まれず、クライアントには出ない。
 export const runtime = "nodejs";
@@ -41,9 +47,23 @@ export async function POST(req: Request) {
     const model = genAI.getGenerativeModel({
       model: process.env.GEMINI_MODEL || "gemini-3-flash-preview",
       systemInstruction: REVIEW_SYSTEM,
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: REVIEW_SCHEMA,
+      },
     });
-    const result = await model.generateContent(buildReviewPrompt(input));
-    return NextResponse.json({ result: result.response.text() });
+    const result = await model.generateContent(buildStructuredReviewPrompt(input));
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.response.text());
+    } catch {
+      return NextResponse.json(
+        { error: "AIの応答を解析できませんでした。もう一度お試しください。" },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json({ result: normalizeReviewResult(parsed) });
   } catch (e) {
     if (e instanceof GoogleGenerativeAIFetchError) {
       if (e.status === 429) {

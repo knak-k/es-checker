@@ -20,6 +20,7 @@ import {
   newDraft,
   saveDrafts,
 } from "@/lib/drafts";
+import type { ReviewResult } from "@/lib/prompt";
 
 const EMPTY = { company: "", role: "", question: "", body: "", maxChars: "" };
 
@@ -29,7 +30,7 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
 
   const [reviewing, setReviewing] = useState(false);
-  const [result, setResult] = useState("");
+  const [result, setResult] = useState<ReviewResult | null>(null);
   const [apiError, setApiError] = useState("");
 
   // 起動時に下書きを読み込み（無ければ1件作成）。旧・単一下書きは自動移行。
@@ -61,7 +62,7 @@ export default function Home() {
 
   function switchDraft(id: string) {
     setCurrentId(id);
-    setResult("");
+    setResult(null);
     setApiError("");
   }
 
@@ -69,7 +70,7 @@ export default function Home() {
     const d = newDraft();
     setDrafts([d, ...drafts]);
     setCurrentId(d.id);
-    setResult("");
+    setResult(null);
     setApiError("");
   }
 
@@ -85,7 +86,7 @@ export default function Home() {
       setDrafts(rest);
       setCurrentId(rest[0].id);
     }
-    setResult("");
+    setResult(null);
     setApiError("");
   }
 
@@ -102,7 +103,7 @@ export default function Home() {
     if (!f.body.trim()) return;
     setReviewing(true);
     setApiError("");
-    setResult("");
+    setResult(null);
     try {
       const res = await fetch("/api/review", {
         method: "POST",
@@ -118,7 +119,7 @@ export default function Home() {
       if (!res.ok) {
         setApiError(data.error ?? "添削に失敗しました。");
       } else {
-        setResult(data.result ?? "");
+        setResult(data.result ?? null);
       }
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "通信に失敗しました。");
@@ -275,11 +276,67 @@ export default function Home() {
       {result && (
         <Card className="shadow-sm mt-4">
           <Card.Body className="p-4">
-            <h2 className="h6 d-flex align-items-center gap-2 mb-3">
-              <Badge bg="primary">AI</Badge>
-              添削結果
-            </h2>
-            <div className="review-output">{result}</div>
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <h2 className="h6 d-flex align-items-center gap-2 mb-0">
+                <Badge bg="primary">AI</Badge>
+                添削結果
+              </h2>
+              <span className="fs-4 fw-bold">
+                {result.overallScore}
+                <span className="fs-6 fw-normal text-body-secondary"> / 100</span>
+              </span>
+            </div>
+            {result.overallComment && (
+              <p className="text-body-secondary">{result.overallComment}</p>
+            )}
+
+            <div className="d-flex flex-column gap-3 mt-3">
+              {result.items.map((item) => (
+                <div key={item.name} className="border rounded p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <span className="fw-semibold">{item.name}</span>
+                    <span className="small text-body-secondary">
+                      {item.score} / 20
+                    </span>
+                  </div>
+                  <ProgressBar
+                    now={(item.score / 20) * 100}
+                    style={{ height: 5 }}
+                    className="mb-2"
+                  />
+                  <p className="small mb-1">
+                    <span className="text-body-secondary">評価理由：</span>
+                    {item.reason}
+                  </p>
+                  <p className="small mb-1">
+                    <span className="text-body-secondary">不足要素：</span>
+                    {item.missing}
+                  </p>
+                  <p className="small mb-0">
+                    <span className="text-body-secondary">改善案：</span>
+                    {item.improvement}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {result.deductions && (
+              <Alert variant="warning" className="mt-3 mb-0">
+                <strong>減点チェック：</strong> {result.deductions}
+              </Alert>
+            )}
+
+            {result.priorities.length > 0 && (
+              <div className="mt-3">
+                <div className="fw-semibold mb-1">優先改善</div>
+                <ol className="mb-0 ps-3">
+                  {result.priorities.map((p, i) => (
+                    <li key={i}>{p}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
             <p className="text-body-secondary small border-top pt-3 mt-3 mb-0">
               ※ 無料AIのため入力が学習に使われる場合があります。添削は参考で、最終判断はご自身で。
             </p>

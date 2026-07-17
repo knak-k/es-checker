@@ -19,6 +19,8 @@ npm install
 
 ```
 GEMINI_API_KEY=（https://aistudio.google.com/apikey で取得）
+GEMINI_MODEL=gemini-3-flash-preview（省略可。未指定でもこれが既定）
+SITE_PASSWORD=（サイト全体の簡易パスワードゲート。空だと誰でもアクセス可能になるので必ず設定）
 ```
 
 ## 起動
@@ -36,11 +38,15 @@ http://localhost:3000 を開く。
 - `src/app/browser/page.tsx` … ブラウザ内Gemma（WebLLM）
 - `src/lib/checks.ts` … 文字数・御社/貴社の即時チェック
 - `src/lib/prompt.ts` … 添削プロンプト（共有）
+- `src/lib/drafts.ts` … 企業別下書きの保存/読込
+- `src/proxy.ts` … サイト全体のパスワードゲート（Next.js 16 の Middleware→Proxy）
+- `src/app/login/page.tsx` / `src/app/api/login/route.ts` … ログイン画面とCookie発行
 
 ## 注意
 
 - APIキーは**サーバー環境変数のみ**。クライアントに出さない。
 - 無料枠は入力が学習に使われる場合がある（ESの個人情報に注意）。本番運用では有料枠や上限設定を検討。
+- `SITE_PASSWORD` 未設定だとパスワードゲートが**無効化**される（ローカル開発の利便性のための仕様）。Vercel には必ず設定すること。
 
 ## 進捗（開発ログ）
 
@@ -65,17 +71,25 @@ http://localhost:3000 を開く。
 - **企業別に下書き管理**：複数ESの保存・切替・新規・削除（`src/lib/drafts.ts`）。旧・単一下書きは自動移行。ロジック単体テスト 12/12
 - **無料枠レート制限のエラー表示**：Gemini の 429 を検知し「アクセス集中・1分後に再試行」等の日本語メッセージに変換（`GoogleGenerativeAIFetchError.status` で判定）。単体テスト 5/5
 
+- **Gemini 添削の実動作確認**：`gemini-1.5-flash` はこのキー（2026年新規プロジェクト）では廃止済み(404)。
+  `gemini-2.0-flash`は429（新規プロジェクトはクォータ0）、`gemini-2.5-flash`系も404。
+  実際に動いたのは `gemini-3-flash-preview`（日本語で適切に応答、指定フォーマット通りの辛口採点を確認）。
+  既定モデルをこれに変更（`src/app/api/review/route.ts`）。`gemini-3.1-flash-lite` は応答が不安定だったため不採用。
+
+- **パスワードゲート（限定公開）**：サイト全体を `SITE_PASSWORD` で保護。未認証は `/login` にリダイレクト、
+  `/api/review` への直接アクセスも防止（実機で5パターン検証済み：未認証307／誤パスワード401／
+  正パスワード200＋Cookie発行／Cookie持参で通過／`/api/review`直叩きもリダイレクト）。
+  Cookieは HttpOnly・HMAC-SHA256署名・timing-safe比較。`SITE_PASSWORD` 未設定時はゲート無効（ローカル開発用）。
+
 ### 進行中
 
-- **Vercel デプロイ**（スマホで使える公開URL化）
-  - [ ] Gemini 無料APIキーを取得（https://aistudio.google.com/apikey ）※大学アカウントで作成不可なら個人Gmailで
+- **Vercel デプロイ**（スマホで使える公開URL化。ただし完全公開はせず、パスワードで守った状態にする）
   - [ ] Vercel に GitHub 連携でインポート
-  - [ ] Vercel 環境変数に `GEMINI_API_KEY` を設定
-  - [ ] デプロイ → 公開URLをスマホで動作確認
+  - [ ] Vercel 環境変数に `GEMINI_API_KEY`・`SITE_PASSWORD`（必須。無いと誰でも入れてしまう）・任意で `GEMINI_MODEL` を設定
+  - [ ] デプロイ → 公開URLでパスワードゲートが機能するか、スマホで動作確認
 
 ### 未着手（今後）
 
-- 実機での Gemini 添削の動作確認（キー設定後）
 - 悪用対策（同一IP・同一端末からの連投制限など。今は無料枠のレート制限まかせ）
 - 下書きのバージョン履歴・比較（plan.md の P2）
 - 添削結果の構造化表示（項目ごとにカード化・コピー）

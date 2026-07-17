@@ -20,7 +20,7 @@ import {
   newDraft,
   saveDrafts,
 } from "@/lib/drafts";
-import type { ReviewResult } from "@/lib/prompt";
+import { formatReviewResultAsText, type ReviewResult } from "@/lib/prompt";
 
 const EMPTY = { company: "", role: "", question: "", body: "", maxChars: "" };
 
@@ -32,6 +32,7 @@ export default function Home() {
   const [reviewing, setReviewing] = useState(false);
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [apiError, setApiError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   // 起動時に下書きを読み込み（無ければ1件作成）。旧・単一下書きは自動移行。
   useEffect(() => {
@@ -99,11 +100,23 @@ export default function Home() {
   const ratio = limit && limit > 0 ? Math.min(charCount / limit, 1) : 0;
   const meterVariant = over ? "danger" : ratio >= 0.9 ? "warning" : "info";
 
+  async function copyResult() {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(formatReviewResultAsText(result));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // クリップボードAPI非対応環境では何もしない
+    }
+  }
+
   async function runReview() {
     if (!f.body.trim()) return;
     setReviewing(true);
     setApiError("");
     setResult(null);
+    setCopied(false);
     try {
       const res = await fetch("/api/review", {
         method: "POST",
@@ -281,10 +294,15 @@ export default function Home() {
                 <Badge bg="primary">AI</Badge>
                 添削結果
               </h2>
-              <span className="fs-4 fw-bold">
-                {result.overallScore}
-                <span className="fs-6 fw-normal text-body-secondary"> / 100</span>
-              </span>
+              <div className="d-flex align-items-center gap-3">
+                <span className="fs-4 fw-bold">
+                  {result.overallScore}
+                  <span className="fs-6 fw-normal text-body-secondary"> / 100</span>
+                </span>
+                <Button size="sm" variant="outline-secondary" onClick={copyResult}>
+                  {copied ? "コピーしました" : "コピー"}
+                </Button>
+              </div>
             </div>
             {result.overallComment && (
               <p className="text-body-secondary">{result.overallComment}</p>

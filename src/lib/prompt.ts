@@ -143,3 +143,28 @@ export function normalizeReviewResult(raw: unknown): ReviewResult {
       : [],
   };
 }
+
+// コピーボタン用に、構造化結果を読みやすいプレーンテキストへ整形する。
+export function formatReviewResultAsText(r: ReviewResult): string {
+  const lines: string[] = [];
+  lines.push(`【総合評価】${r.overallScore} / 100`);
+  if (r.overallComment) lines.push(r.overallComment);
+  lines.push("");
+  lines.push("【項目別採点】");
+  for (const item of r.items) {
+    lines.push(`◯ ${item.name}：${item.score} / 20`);
+    if (item.reason) lines.push(`  評価理由：${item.reason}`);
+    if (item.missing) lines.push(`  不足要素：${item.missing}`);
+    if (item.improvement) lines.push(`  改善案：${item.improvement}`);
+  }
+  if (r.deductions) {
+    lines.push("");
+    lines.push(`【減点チェック】${r.deductions}`);
+  }
+  if (r.priorities.length > 0) {
+    lines.push("");
+    lines.push("【優先改善】");
+    r.priorities.forEach((p, i) => lines.push(`${i + 1}. ${p}`));
+  }
+  return lines.join("\n");
+}

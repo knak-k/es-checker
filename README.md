@@ -80,6 +80,12 @@ http://localhost:3000 を開く。
   `/api/review` への直接アクセスも防止（実機で5パターン検証済み：未認証307／誤パスワード401／
   正パスワード200＋Cookie発行／Cookie持参で通過／`/api/review`直叩きもリダイレクト）。
   Cookieは HttpOnly・HMAC-SHA256署名・timing-safe比較。`SITE_PASSWORD` 未設定時はゲート無効（ローカル開発用）。
+  本番（Vercel）で実機検証済み。※初回pushし忘れで一時的にゲートなしで公開されていたため、
+  即座にpushして解消（`f44f9e4`）。
+- **検索避け（noindex）**：`robots.txt`（全面Disallow）と `<meta name="robots" content="noindex,nofollow">` を追加。
+  `robots.txt` 自体はパスワードゲート対象外にして、クローラーが正しく読めるようにした。
+- **フォント修正**：`Noto Sans JP` を next/font/google で確実に読み込み。Windows等でシステムフォールバックが
+  古いフォント（Meiryo等）になっていた問題を解消。
 
 ### 進行中
 

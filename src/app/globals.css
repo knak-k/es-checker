@@ -2,8 +2,8 @@
    ここは最小限のカスタムのみ。 */
 
 body {
-  font-family: var(--font-geist-sans), "Hiragino Sans", "Hiragino Kaku Gothic ProN",
-    "Noto Sans JP", Meiryo, system-ui, sans-serif;
+  font-family: var(--font-geist-sans), var(--font-noto-sans-jp), "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
 }
 
 /* 添削結果の等幅表示を本文フォントに寄せる */

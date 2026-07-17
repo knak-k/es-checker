@@ -1,4 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  GoogleGenerativeAI,
+  GoogleGenerativeAIFetchError,
+} from "@google/generative-ai";
 import { NextResponse } from "next/server";
 import { REVIEW_SYSTEM, buildReviewPrompt, type ReviewInput } from "@/lib/prompt";
 
@@ -42,6 +45,26 @@ export async function POST(req: Request) {
     const result = await model.generateContent(buildReviewPrompt(input));
     return NextResponse.json({ result: result.response.text() });
   } catch (e) {
+    if (e instanceof GoogleGenerativeAIFetchError) {
+      if (e.status === 429) {
+        return NextResponse.json(
+          {
+            error:
+              "現在アクセスが集中しており、無料枠の利用上限に達しました。1分ほど時間をおいて再度お試しください。",
+          },
+          { status: 429 },
+        );
+      }
+      if (e.status === 400 || e.status === 403) {
+        return NextResponse.json(
+          {
+            error:
+              "APIキーが無効か、権限がありません。GEMINI_API_KEY の設定を確認してください。",
+          },
+          { status: 502 },
+        );
+      }
+    }
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
       { error: `添削に失敗しました: ${msg}` },

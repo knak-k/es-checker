@@ -9,18 +9,30 @@ import {
   Col,
   Container,
   Form,
+  Modal,
   ProgressBar,
   Row,
 } from "react-bootstrap";
 import { checkOnshaKisha, countChars } from "@/lib/checks";
 import {
+  addVersion,
   type Draft,
+  type DraftVersion,
   draftLabel,
   loadDrafts,
   newDraft,
   saveDrafts,
 } from "@/lib/drafts";
 import { formatReviewResultAsText, type ReviewResult } from "@/lib/prompt";
+
+function formatVersionTime(ts: number): string {
+  return new Date(ts).toLocaleString("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 const EMPTY = { company: "", role: "", question: "", body: "", maxChars: "" };
 
@@ -33,6 +45,9 @@ export default function Home() {
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [apiError, setApiError] = useState("");
   const [copied, setCopied] = useState(false);
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
 
   // 起動時に下書きを読み込み（無ければ1件作成）。旧・単一下書きは自動移行。
   useEffect(() => {
@@ -51,6 +66,7 @@ export default function Home() {
 
   const current = drafts.find((d) => d.id === currentId) ?? null;
   const f = current ?? EMPTY;
+  const versions = current?.versions ?? [];
 
   function updateCurrent(patch: Partial<Draft>) {
     if (!currentId) return;
@@ -65,6 +81,28 @@ export default function Home() {
     setCurrentId(id);
     setResult(null);
     setApiError("");
+    setCompareIds([]);
+  }
+
+  function openHistory() {
+    setCompareIds([]);
+    setShowHistory(true);
+  }
+
+  function toggleCompare(id: string) {
+    setCompareIds((ids) => {
+      if (ids.includes(id)) return ids.filter((x) => x !== id);
+      if (ids.length >= 2) return [ids[1], id]; // 直近2件だけ保持
+      return [...ids, id];
+    });
+  }
+
+  function restoreVersion(v: DraftVersion) {
+    if (!window.confirm("このバージョンの本文を復元します。現在の本文は上書きされます。よろしいですか？")) {
+      return;
+    }
+    updateCurrent({ body: v.body });
+    setShowHistory(false);
   }
 
   function addDraft() {
@@ -132,7 +170,22 @@ export default function Home() {
       if (!res.ok) {
         setApiError(data.error ?? "添削に失敗しました。");
       } else {
-        setResult(data.result ?? null);
+        const parsed: ReviewResult | null = data.result ?? null;
+        setResult(parsed);
+        // 添削できた本文とスコアを、履歴（バージョン）として自動保存する
+        if (parsed) {
+          const bodyAtReview = f.body;
+          setDrafts((ds) =>
+            ds.map((d) =>
+              d.id === currentId
+                ? addVersion(d, {
+                    body: bodyAtReview,
+                    overallScore: parsed.overallScore,
+                  })
+                : d,
+            ),
+          );
+        }
       }
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "通信に失敗しました。");
@@ -176,6 +229,14 @@ export default function Home() {
           disabled={!current}
         >
           削除
+        </Button>
+        <Button
+          size="sm"
+          variant="outline-secondary"
+          onClick={openHistory}
+          disabled={versions.length === 0}
+        >
+          履歴（{versions.length}）
         </Button>
         <span className="text-body-secondary small ms-auto">
           この端末に自動保存
@@ -361,6 +422,100 @@ export default function Home() {
           </Card.Body>
         </Card>
       )}
+
+      <Modal show={showHistory} onHide={() => setShowHistory(false)} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="h6 mb-0">
+            履歴{current ? `（${draftLabel(current)}）` : ""}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {versions.length === 0 ? (
+            <p className="text-body-secondary mb-0">
+              まだ履歴がありません。添削を実行すると自動で保存されます。
+            </p>
+          ) : (
+            <>
+              <p className="text-body-secondary small">
+                添削を実行するたびに自動保存されます（最大20件）。2件選ぶと下に並べて比較できます。
+              </p>
+              <div className="d-flex flex-column gap-2">
+                {versions.map((v) => (
+                  <div
+                    key={v.id}
+                    className="border rounded p-2 d-flex align-items-start gap-2"
+                  >
+                    <Form.Check
+                      type="checkbox"
+                      checked={compareIds.includes(v.id)}
+                      onChange={() => toggleCompare(v.id)}
+                      disabled={
+                        !compareIds.includes(v.id) && compareIds.length >= 2
+                      }
+                      className="mt-1"
+                    />
+                    <div className="flex-grow-1">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span className="small text-body-secondary">
+                          {formatVersionTime(v.savedAt)}
+                        </span>
+                        {v.overallScore !== null && (
+                          <Badge bg="primary">{v.overallScore} / 100</Badge>
+                        )}
+                      </div>
+                      <p
+                        className="small mb-1 mt-1"
+                        style={{ whiteSpace: "pre-wrap" }}
+                      >
+                        {v.body.length > 80 ? `${v.body.slice(0, 80)}…` : v.body}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        onClick={() => restoreVersion(v)}
+                      >
+                        このバージョンを復元
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {compareIds.length === 2 && (
+                <div className="mt-4">
+                  <div className="fw-semibold mb-2">比較</div>
+                  <Row className="g-3">
+                    {compareIds.map((id) => {
+                      const v = versions.find((x) => x.id === id);
+                      if (!v) return null;
+                      return (
+                        <Col md={6} key={id}>
+                          <div className="border rounded p-2 h-100">
+                            <div className="d-flex justify-content-between align-items-center mb-1">
+                              <span className="small text-body-secondary">
+                                {formatVersionTime(v.savedAt)}
+                              </span>
+                              {v.overallScore !== null && (
+                                <Badge bg="primary">{v.overallScore} / 100</Badge>
+                              )}
+                            </div>
+                            <p
+                              className="small mb-0"
+                              style={{ whiteSpace: "pre-wrap" }}
+                            >
+                              {v.body}
+                            </p>
+                          </div>
+                        </Col>
+                      );
+                    })}
+                  </Row>
+                </div>
+              )}
+            </>
+          )}
+        </Modal.Body>
+      </Modal>
     </Container>
   );
 }

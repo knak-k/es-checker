@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Badge,
@@ -51,11 +51,13 @@ export default function Home() {
 
   // 起動時に下書きを読み込み（無ければ1件作成）。旧・単一下書きは自動移行。
   useEffect(() => {
-    let loaded = loadDrafts();
-    if (loaded.length === 0) loaded = [newDraft()];
-    setDrafts(loaded);
-    setCurrentId(loaded[0].id);
-    setHydrated(true);
+    (async () => {
+      let loaded = loadDrafts();
+      if (loaded.length === 0) loaded = [newDraft()];
+      setDrafts(loaded);
+      setCurrentId(loaded[0].id);
+      setHydrated(true);
+    })();
   }, []);
 
   // 変更を自動保存
@@ -129,8 +131,8 @@ export default function Home() {
     setApiError("");
   }
 
-  const charCount = useMemo(() => countChars(f.body), [f.body]);
-  const misuse = useMemo(() => checkOnshaKisha(f.body), [f.body]);
+  const charCount = countChars(f.body);
+  const misuse = checkOnshaKisha(f.body);
 
   const limit = f.maxChars === "" ? null : Number(f.maxChars);
   const over = limit !== null && charCount > limit;

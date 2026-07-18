@@ -40,8 +40,8 @@ export default function BrowserPage() {
 
   // WebGPU 対応判定 ＋ 利用可能な Gemma モデル一覧の取得（クライアントのみ）
   useEffect(() => {
-    setWebgpuOk(typeof navigator !== "undefined" && "gpu" in navigator);
     (async () => {
+      setWebgpuOk(typeof navigator !== "undefined" && "gpu" in navigator);
       const webllm = await import("@mlc-ai/web-llm");
       const gemma = webllm.prebuiltAppConfig.model_list
         .map((m) => m.model_id)

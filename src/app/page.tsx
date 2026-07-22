@@ -24,6 +24,7 @@ import {
   saveDrafts,
 } from "@/lib/drafts";
 import { formatReviewResultAsText, type ReviewResult } from "@/lib/prompt";
+import { PartsModal } from "./_components/PartsModal";
 
 function formatVersionTime(ts: number): string {
   return new Date(ts).toLocaleString("ja-JP", {
@@ -48,6 +49,7 @@ export default function Home() {
 
   const [showHistory, setShowHistory] = useState(false);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [showParts, setShowParts] = useState(false);
 
   // 起動時に下書きを読み込み（無ければ1件作成）。旧・単一下書きは自動移行。
   useEffect(() => {
@@ -77,6 +79,13 @@ export default function Home() {
         d.id === currentId ? { ...d, ...patch, updatedAt: Date.now() } : d,
       ),
     );
+  }
+
+  // パーツから挿入。既存の本文は失わず、末尾に追記する。
+  function insertPart(text: string) {
+    if (!text.trim()) return;
+    updateCurrent({ body: f.body ? `${f.body}\n${text}` : text });
+    setShowParts(false);
   }
 
   function switchDraft(id: string) {
@@ -239,6 +248,13 @@ export default function Home() {
           disabled={versions.length === 0}
         >
           履歴（{versions.length}）
+        </Button>
+        <Button
+          size="sm"
+          variant="outline-secondary"
+          onClick={() => setShowParts(true)}
+        >
+          パーツ
         </Button>
         <span className="text-body-secondary small ms-auto">
           この端末に自動保存
@@ -537,6 +553,12 @@ export default function Home() {
           )}
         </Modal.Body>
       </Modal>
+
+      <PartsModal
+        show={showParts}
+        onHide={() => setShowParts(false)}
+        onInsert={insertPart}
+      />
     </Container>
   );
 }

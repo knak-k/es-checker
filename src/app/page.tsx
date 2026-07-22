@@ -407,6 +407,25 @@ export default function Home() {
               </Alert>
             )}
 
+            {result.ruleChecks.length > 0 && (
+              <div className="mt-3">
+                <div className="fw-semibold mb-1">既存ルール準拠チェック</div>
+                <ul className="list-unstyled mb-0 d-flex flex-column gap-1">
+                  {result.ruleChecks.map((rc) => (
+                    <li key={rc.rule} className="d-flex align-items-start gap-2">
+                      <Badge bg={rc.passed ? "success" : "danger"} className="mt-1">
+                        {rc.passed ? "○" : "×"}
+                      </Badge>
+                      <span className="small">
+                        <span className="fw-semibold">{rc.rule}：</span>
+                        {rc.comment}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {result.priorities.length > 0 && (
               <div className="mt-3">
                 <div className="fw-semibold mb-1">優先改善</div>

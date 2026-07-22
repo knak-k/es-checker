@@ -1,7 +1,7 @@
 import { SchemaType, type Schema } from "@google/generative-ai";
 
 // ES添削のプロンプト（サーバーAPI・ブラウザ内モデルの両方で共有）。
-// plan.md の採点ルーブリック（5項目×20点／減点チェック／辛口）を反映。
+// plan.md の採点ルーブリック（5項目×20点／減点チェック／既存ルール準拠チェック／辛口）を反映。
 
 export const REVIEW_SYSTEM =
   "あなたは就活ES（エントリーシート）の辛口添削者です。" +
@@ -25,6 +25,26 @@ export type ReviewInput = {
 
 const RUBRIC_ITEMS = ["主体性", "思考力", "実行力", "他者理解力", "再現性"] as const;
 
+// 既存ルール準拠チェック（plan.md）。減点チェック（数字偏重・感情語・抽象語・仕組み欠如）とは別カテゴリ。
+const RULE_CHECK_ITEMS = [
+  "結論ファースト",
+  "受け身表現の有無",
+  "目的の具体性",
+  "2点構造の回避",
+  "まとめ一文",
+  "AIっぽい日本語",
+  "企業独自性",
+] as const;
+
+const RULE_CHECK_GUIDE =
+  "結論ファースト＝答えを先に述べているか。" +
+  "受け身表現の有無＝「〜された」等の受け身が多用され主体性が薄れていないか。" +
+  "目的の具体性＝行動の目的が抽象論でなく具体的か。" +
+  "2点構造の回避＝「1つ目は…2つ目は…」のような機械的な2点羅列になっていないか。" +
+  "まとめ一文＝末尾に明確な締めの一文があるか。" +
+  "AIっぽい日本語＝生成AIが書いたような無難・没個性な言い回しになっていないか。" +
+  "企業独自性＝内容がこの企業固有か、どの企業にも使い回せる一般論になっていないか。";
+
 function reviewContext(p: ReviewInput): string {
   return [
     `企業: ${p.company || "(未記入)"}`,
@@ -44,6 +64,8 @@ export function buildStructuredReviewPrompt(p: ReviewInput): string {
     reviewContext(p),
     "",
     `項目別採点は必ず次の5項目・この順序で、各0〜20点で採点すること: ${RUBRIC_ITEMS.join(" / ")}`,
+    `既存ルール準拠チェックは必ず次の7項目・この順序で、passed(true/false)とcommentを付けること: ${RULE_CHECK_ITEMS.join(" / ")}`,
+    RULE_CHECK_GUIDE,
   ].join("\n");
 }
 
@@ -58,6 +80,8 @@ export function buildFreeformReviewPrompt(p: ReviewInput): string {
     "【総合評価】100点満点で採点（辛口）＋2〜3文の総評",
     `【項目別採点】次の5項目を各20点で採点し、各項目「得点／評価理由／不足要素／具体的改善案」を1〜2行で: ${RUBRIC_ITEMS.join(" / ")}`,
     "【減点チェック】数字偏重・感情語・抽象語の未定義使用・仕組み設計の欠如などが該当すれば指摘",
+    `【既存ルール準拠チェック】次の7項目それぞれについて、○か×か＋一言理由を1行で: ${RULE_CHECK_ITEMS.join(" / ")}`,
+    RULE_CHECK_GUIDE,
     "【優先改善】最も効く改善を3つ、具体的に",
   ].join("\n");
 }
@@ -92,6 +116,21 @@ export const REVIEW_SCHEMA: Schema = {
       type: SchemaType.STRING,
       description: "減点チェックの指摘。該当なしなら空文字",
     },
+    ruleChecks: {
+      type: SchemaType.ARRAY,
+      minItems: 7,
+      maxItems: 7,
+      description: `必ず ${RULE_CHECK_ITEMS.join(" / ")} の順で7項目。${RULE_CHECK_GUIDE}`,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          rule: { type: SchemaType.STRING, description: "ルール名" },
+          passed: { type: SchemaType.BOOLEAN, description: "準拠していれば true" },
+          comment: { type: SchemaType.STRING, description: "一言理由" },
+        },
+        required: ["rule", "passed", "comment"],
+      },
+    },
     priorities: {
       type: SchemaType.ARRAY,
       minItems: 3,
@@ -100,7 +139,7 @@ export const REVIEW_SCHEMA: Schema = {
       description: "優先改善を3つ",
     },
   },
-  required: ["overallComment", "items", "deductions", "priorities"],
+  required: ["overallComment", "items", "deductions", "ruleChecks", "priorities"],
 };
 
 export type ReviewItem = {
@@ -111,11 +150,18 @@ export type ReviewItem = {
   improvement: string;
 };
 
+export type RuleCheckItem = {
+  rule: string;
+  passed: boolean;
+  comment: string;
+};
+
 export type ReviewResult = {
   overallScore: number;
   overallComment: string;
   items: ReviewItem[];
   deductions: string;
+  ruleChecks: RuleCheckItem[];
   priorities: string[];
 };
 
@@ -139,11 +185,22 @@ export function normalizeReviewResult(raw: unknown): ReviewResult {
     };
   });
 
+  const rawRuleChecks = Array.isArray(r.ruleChecks) ? r.ruleChecks : [];
+  const ruleChecks: RuleCheckItem[] = rawRuleChecks.slice(0, 7).map((it) => {
+    const o = (it ?? {}) as Record<string, unknown>;
+    return {
+      rule: typeof o.rule === "string" ? o.rule : "",
+      passed: o.passed === true,
+      comment: typeof o.comment === "string" ? o.comment : "",
+    };
+  });
+
   return {
     overallScore: items.reduce((sum, it) => sum + it.score, 0),
     overallComment: typeof r.overallComment === "string" ? r.overallComment : "",
     items,
     deductions: typeof r.deductions === "string" ? r.deductions : "",
+    ruleChecks,
     priorities: Array.isArray(r.priorities)
       ? r.priorities.filter((p): p is string => typeof p === "string").slice(0, 5)
       : [],
@@ -166,6 +223,13 @@ export function formatReviewResultAsText(r: ReviewResult): string {
   if (r.deductions) {
     lines.push("");
     lines.push(`【減点チェック】${r.deductions}`);
+  }
+  if (r.ruleChecks.length > 0) {
+    lines.push("");
+    lines.push("【既存ルール準拠チェック】");
+    for (const rc of r.ruleChecks) {
+      lines.push(`${rc.passed ? "○" : "×"} ${rc.rule}：${rc.comment}`);
+    }
   }
   if (r.priorities.length > 0) {
     lines.push("");

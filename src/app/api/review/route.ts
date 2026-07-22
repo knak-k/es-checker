@@ -50,6 +50,9 @@ export async function POST(req: Request) {
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: REVIEW_SCHEMA,
+        // 採点タスクのため創造性より一貫性を優先し、低温に固定する。
+        // （未指定時のデフォルトでは同一入力でも±12点程度ブレることを実測で確認した）
+        temperature: 0.2,
       },
     });
     const result = await model.generateContent(buildStructuredReviewPrompt(input));

@@ -64,6 +64,9 @@ export function buildStructuredReviewPrompt(p: ReviewInput): string {
     reviewContext(p),
     "",
     `項目別採点は必ず次の5項目・この順序で、各0〜20点で採点すること: ${RUBRIC_ITEMS.join(" / ")}`,
+    "減点チェック（数字偏重・感情語での価値補強・抽象語の未定義使用・仕組み設計の欠如など）は、" +
+      "該当する指摘ごとに1件ずつ分けて、本文のどこがどう問題か（issue）と、具体的にどう直せば解消するか" +
+      "（improvement）をペアで出すこと。該当なしなら空配列でよい。",
     `既存ルール準拠チェックは必ず次の7項目・この順序で、passed(true/false)とcommentを付けること: ${RULE_CHECK_ITEMS.join(" / ")}`,
     RULE_CHECK_GUIDE,
   ].join("\n");
@@ -79,7 +82,8 @@ export function buildFreeformReviewPrompt(p: ReviewInput): string {
     "出力フォーマット（この見出しを厳守、Markdown記法は使わずプレーンテキストで）:",
     "【総合評価】100点満点で採点（辛口）＋2〜3文の総評",
     `【項目別採点】次の5項目を各20点で採点し、各項目「得点／評価理由／不足要素／具体的改善案」を1〜2行で: ${RUBRIC_ITEMS.join(" / ")}`,
-    "【減点チェック】数字偏重・感情語・抽象語の未定義使用・仕組み設計の欠如などが該当すれば指摘",
+    "【減点チェック】数字偏重・感情語・抽象語の未定義使用・仕組み設計の欠如などが該当すれば、" +
+      "1件ずつ「問題点／直し方」の対で指摘（複数あれば箇条書き）",
     `【既存ルール準拠チェック】次の7項目それぞれについて、○か×か＋一言理由を1行で: ${RULE_CHECK_ITEMS.join(" / ")}`,
     RULE_CHECK_GUIDE,
     "【優先改善】最も効く改善を3つ、具体的に",
@@ -113,8 +117,18 @@ export const REVIEW_SCHEMA: Schema = {
       },
     },
     deductions: {
-      type: SchemaType.STRING,
-      description: "減点チェックの指摘。該当なしなら空文字",
+      type: SchemaType.ARRAY,
+      description:
+        "減点チェック（数字偏重・感情語・抽象語の未定義使用・仕組み設計の欠如など）。" +
+        "該当する指摘ごとに1件。該当なしなら空配列",
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          issue: { type: SchemaType.STRING, description: "本文のどこがどう問題か" },
+          improvement: { type: SchemaType.STRING, description: "具体的な直し方" },
+        },
+        required: ["issue", "improvement"],
+      },
     },
     ruleChecks: {
       type: SchemaType.ARRAY,
@@ -156,11 +170,16 @@ export type RuleCheckItem = {
   comment: string;
 };
 
+export type DeductionItem = {
+  issue: string;
+  improvement: string;
+};
+
 export type ReviewResult = {
   overallScore: number;
   overallComment: string;
   items: ReviewItem[];
-  deductions: string;
+  deductions: DeductionItem[];
   ruleChecks: RuleCheckItem[];
   priorities: string[];
 };
@@ -185,6 +204,22 @@ export function normalizeReviewResult(raw: unknown): ReviewResult {
     };
   });
 
+  let deductions: DeductionItem[];
+  if (Array.isArray(r.deductions)) {
+    deductions = r.deductions.map((it) => {
+      const o = (it ?? {}) as Record<string, unknown>;
+      return {
+        issue: typeof o.issue === "string" ? o.issue : "",
+        improvement: typeof o.improvement === "string" ? o.improvement : "",
+      };
+    });
+  } else if (typeof r.deductions === "string" && r.deductions) {
+    // 旧形式（単一文字列）や想定外の出力からのフォールバック
+    deductions = [{ issue: r.deductions, improvement: "" }];
+  } else {
+    deductions = [];
+  }
+
   const rawRuleChecks = Array.isArray(r.ruleChecks) ? r.ruleChecks : [];
   const ruleChecks: RuleCheckItem[] = rawRuleChecks.slice(0, 7).map((it) => {
     const o = (it ?? {}) as Record<string, unknown>;
@@ -199,7 +234,7 @@ export function normalizeReviewResult(raw: unknown): ReviewResult {
     overallScore: items.reduce((sum, it) => sum + it.score, 0),
     overallComment: typeof r.overallComment === "string" ? r.overallComment : "",
     items,
-    deductions: typeof r.deductions === "string" ? r.deductions : "",
+    deductions,
     ruleChecks,
     priorities: Array.isArray(r.priorities)
       ? r.priorities.filter((p): p is string => typeof p === "string").slice(0, 5)
@@ -220,9 +255,13 @@ export function formatReviewResultAsText(r: ReviewResult): string {
     if (item.missing) lines.push(`  不足要素：${item.missing}`);
     if (item.improvement) lines.push(`  改善案：${item.improvement}`);
   }
-  if (r.deductions) {
+  if (r.deductions.length > 0) {
     lines.push("");
-    lines.push(`【減点チェック】${r.deductions}`);
+    lines.push("【減点チェック】");
+    for (const d of r.deductions) {
+      lines.push(`△ ${d.issue}`);
+      if (d.improvement) lines.push(`  直し方：${d.improvement}`);
+    }
   }
   if (r.ruleChecks.length > 0) {
     lines.push("");

@@ -417,10 +417,23 @@ export default function Home() {
               ))}
             </div>
 
-            {result.deductions && (
-              <Alert variant="warning" className="mt-3 mb-0">
-                <strong>減点チェック：</strong> {result.deductions}
-              </Alert>
+            {result.deductions.length > 0 && (
+              <div className="mt-3">
+                <div className="fw-semibold mb-1">減点チェック</div>
+                <div className="d-flex flex-column gap-2">
+                  {result.deductions.map((d, i) => (
+                    <Alert key={i} variant="warning" className="mb-0 py-2">
+                      <p className="mb-1 small">{d.issue}</p>
+                      {d.improvement && (
+                        <p className="mb-0 small">
+                          <span className="text-body-secondary">直し方：</span>
+                          {d.improvement}
+                        </p>
+                      )}
+                    </Alert>
+                  ))}
+                </div>
+              </div>
             )}
 
             {result.ruleChecks.length > 0 && (
